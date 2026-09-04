@@ -82,6 +82,11 @@ const useAppStore = create(
       orchestratorMode: "fast",
       memoryMode: "minimal",
       toolCallingEnabled: true,
+      // Single AI mode uses only the defaultApi; Multi AI mode uses per-persona routing
+      // with a fallback.
+      aiMode: "single",
+      defaultApi: "openrouter",
+      fallbackApi: "ollama",
       agents: FALLBACK_AGENTS,
       messages: [],
       discussionHistory: [],
@@ -285,6 +290,9 @@ const useAppStore = create(
           orchestratorMode: "fast",
           memoryMode: "minimal",
           toolCallingEnabled: true,
+          aiMode: "single",
+          defaultApi: "openrouter",
+          fallbackApi: "ollama",
           gameState: initialGameState(),
           messages: [],
           discussionHistory: [],
@@ -740,6 +748,9 @@ const useAppStore = create(
       setOrchestratorMode: (orchestratorMode) => set({ orchestratorMode }),
       setMemoryMode: (memoryMode) => set({ memoryMode }),
       setToolCallingEnabled: (toolCallingEnabled) => set({ toolCallingEnabled: Boolean(toolCallingEnabled) }),
+      setAiMode: (aiMode) => set({ aiMode }),
+      setDefaultApi: (defaultApi) => set({ defaultApi }),
+      setFallbackApi: (fallbackApi) => set({ fallbackApi }),
 
       resetSession: () =>
         set({
@@ -769,6 +780,9 @@ const useAppStore = create(
         orchestratorMode: state.orchestratorMode,
         memoryMode: state.memoryMode,
         toolCallingEnabled: state.toolCallingEnabled,
+        aiMode: state.aiMode,
+        defaultApi: state.defaultApi,
+        fallbackApi: state.fallbackApi,
         gameState: state.gameState,
         discussionHistory: state.discussionHistory,
         messages: state.messages,
