@@ -444,6 +444,51 @@ function MemberSelect({
           </p>}
 
         <div className="space-y-8 mb-24">
+          {selectedAgents.length > 0 ? (
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Your Council
+                </h3>
+                <span className="text-sm text-slate-500 dark:text-slate-400 font-mono">
+                  {selectedAgents.length} / {maxSelection} selected
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {selectedAgents.map((id) => {
+                  const agent = scopedAgents.find((a) => a.id === id);
+                  if (!agent) return null;
+                  return (
+                    <div
+                      key={id}
+                      className="flex items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2 pr-2"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center font-mono text-xs font-bold flex-shrink-0">
+                        {agent.avatarInitials}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                          {agent.name}
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {agent.role}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="ml-2 flex-shrink-0 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 flex items-center justify-center transition-colors"
+                        onClick={() => onToggleAgent(agent.id)}
+                        title={`Remove ${agent.name}`}
+                      >
+                        <span className="text-lg leading-none">×</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           {featuredAgents.length > 0 ? (
             <div className={`rounded-2xl border p-5 ${featureConfigByMode[mode]?.accent.container || "border-slate-200 bg-slate-50"}`}>
               <div className="mb-4 flex items-center justify-between gap-3">
