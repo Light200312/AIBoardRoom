@@ -47,6 +47,7 @@ function OptionGroup({ title, description, options, selectedValue, onChange, dis
 
 // Available API providers — each maps to a backend key (e.g. OPENROUTER_API_KEY, QWEN_API_KEY).
 const API_PROVIDERS = [
+  { id: "localapi", label: "Local API (port 8000)" },
   { id: "openrouter", label: "OpenRouter" },
   { id: "ollama", label: "Ollama (Local)" },
   { id: "qwen", label: "Qwen" },

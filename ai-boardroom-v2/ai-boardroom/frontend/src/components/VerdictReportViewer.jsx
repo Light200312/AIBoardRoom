@@ -18,6 +18,8 @@ function VerdictReportViewer({ verdict, mode, topic }) {
 
   // Route to appropriate renderer based on verdict type
   switch (verdict.type || "combat") {
+    case "boardroom":
+      return <BoardroomVerdictReport verdict={verdict} />;
     case "combat":
       return <CombatVerdictReport verdict={verdict} />;
     case "mentor":
@@ -35,6 +37,167 @@ function VerdictReportViewer({ verdict, mode, topic }) {
     default:
       return <CombatVerdictReport verdict={verdict} />;
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// BOARDROOM MODE REPORT
+// ─────────────────────────────────────────────────────────────
+function BoardroomVerdictReport({ verdict }) {
+  const { overallVerdict, executiveSummary, scores, risks, criticalWeaknesses, keyStrengths, recommendedNextSteps, councilNotes } = verdict;
+
+  const verdictColor = {
+    "Go": "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 text-emerald-900 dark:text-emerald-100",
+    "Conditional Go": "bg-amber-50 dark:bg-amber-950/40 border-amber-400 dark:border-amber-700 text-amber-900 dark:text-amber-100",
+    "No-Go": "bg-red-50 dark:bg-red-950/40 border-red-400 dark:border-red-700 text-red-900 dark:text-red-100",
+  };
+  const verdictBadge = {
+    "Go": "bg-emerald-500 text-white",
+    "Conditional Go": "bg-amber-500 text-white",
+    "No-Go": "bg-red-500 text-white",
+  };
+  const riskColor = {
+    "Low": "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800",
+    "Medium": "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800",
+    "High": "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800",
+  };
+
+  const scoreItems = [
+    { label: "Market Opportunity", value: scores?.marketOpportunity },
+    { label: "Financial Viability", value: scores?.financialViability },
+    { label: "Technical Feasibility", value: scores?.technicalFeasibility },
+    { label: "Investment Attractiveness", value: scores?.investmentAttractiveness },
+  ];
+
+  const riskItems = [
+    { label: "Legal Risk", value: risks?.legalRisk },
+    { label: "Ethical Risk", value: risks?.ethicalRisk },
+    { label: "Operational Risk", value: risks?.operationalRisk },
+    { label: "Market Risk", value: risks?.marketRisk },
+  ];
+
+  const getScoreColor = (score) => {
+    if (score >= 75) return "bg-emerald-500";
+    if (score >= 50) return "bg-amber-500";
+    return "bg-red-500";
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Overall Verdict Banner */}
+      <div className={`rounded-2xl border-2 p-5 flex items-center justify-between gap-4 ${verdictColor[overallVerdict] || verdictColor["Conditional Go"]}`}>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] opacity-70 mb-1">Council Verdict</p>
+          <p className="text-3xl font-bold">{overallVerdict || "Conditional Go"}</p>
+        </div>
+        <span className={`px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider ${verdictBadge[overallVerdict] || verdictBadge["Conditional Go"]}`}>
+          {overallVerdict === "Go" ? "✓ Approved" : overallVerdict === "No-Go" ? "✗ Rejected" : "⚠ Conditional"}
+        </span>
+      </div>
+
+      {/* Executive Summary */}
+      {executiveSummary && (
+        <div className="p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Executive Summary</p>
+          <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">{executiveSummary}</p>
+        </div>
+      )}
+
+      {/* Scores Table */}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div className="px-4 py-3 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Viability Scores</p>
+        </div>
+        <div className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-900">
+          {scoreItems.map(({ label, value }) => (
+            <div key={label} className="px-4 py-3 flex items-center justify-between gap-4">
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{label}</span>
+              <div className="flex items-center gap-3">
+                <div className="w-32 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${getScoreColor(value)}`}
+                    style={{ width: `${value || 0}%` }}
+                  />
+                </div>
+                <span className="text-sm font-bold text-slate-900 dark:text-white w-16 text-right">{value ?? "—"}/100</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Risk Assessment Table */}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div className="px-4 py-3 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Risk Assessment</p>
+        </div>
+        <div className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-900">
+          {riskItems.map(({ label, value }) => (
+            <div key={label} className="px-4 py-3 flex items-center justify-between gap-4">
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{label}</span>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${riskColor[value] || riskColor["Medium"]}`}>
+                {value || "Medium"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Strengths & Weaknesses */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {keyStrengths?.length > 0 && (
+          <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-3">Key Strengths</p>
+            <ul className="space-y-2">
+              {keyStrengths.map((s, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-emerald-800 dark:text-emerald-200">
+                  <span className="mt-0.5 flex-shrink-0 text-emerald-500">✓</span>
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {criticalWeaknesses?.length > 0 && (
+          <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-red-700 dark:text-red-400 mb-3">Critical Weaknesses</p>
+            <ul className="space-y-2">
+              {criticalWeaknesses.map((w, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-red-800 dark:text-red-200">
+                  <span className="mt-0.5 flex-shrink-0 text-red-500">✗</span>
+                  {w}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Next Steps */}
+      {recommendedNextSteps?.length > 0 && (
+        <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-400 mb-3">Recommended Next Steps</p>
+          <ol className="space-y-2">
+            {recommendedNextSteps.map((step, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm text-blue-800 dark:text-blue-200">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-200 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center">
+                  {i + 1}
+                </span>
+                {step}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* Council Notes */}
+      {councilNotes && (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Council Notes</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 italic">{councilNotes}</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────

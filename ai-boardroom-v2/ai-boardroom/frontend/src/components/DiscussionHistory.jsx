@@ -20,10 +20,21 @@ function DiscussionHistory({ discussions = [], isLoading = false, onOpenDiscussi
           {discussions.map((item) => (
             <div
               key={`${item.sessionId}-${item.lastTimestamp}`}
-              className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 flex items-start justify-between gap-4"
+              className={`rounded-md border p-3 flex items-start justify-between gap-4 ${
+                item.isDemo
+                  ? "border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/30"
+                  : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+              }`}
             >
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{item.topic}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{item.topic}</p>
+                  {item.isDemo && (
+                    <span className="px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wider">
+                      Demo
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1">
                   {new Date(item.lastTimestamp).toLocaleString()} | {item.totalMessages} messages
                 </p>

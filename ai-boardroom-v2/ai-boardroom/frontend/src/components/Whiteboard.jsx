@@ -11,8 +11,12 @@ function ProblemCard({ problem, onComment, onFounderOp }) {
 
   return (
     <div
-      className={`group rounded-xl border p-3 transition-colors ${
-        isResolved
+      className={`group rounded-xl border p-3 transition-all duration-500 ${
+        problem.highlighted
+          ? isResolved
+            ? "border-blue-400 bg-blue-100 dark:border-blue-600 dark:bg-blue-900/60 shadow-lg shadow-blue-500/50 animate-pulse"
+            : "border-red-500 bg-red-100 dark:border-red-600 dark:bg-red-900/80 shadow-lg shadow-red-500/50 animate-pulse"
+          : isResolved
           ? "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60"
           : "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/40"
       }`}

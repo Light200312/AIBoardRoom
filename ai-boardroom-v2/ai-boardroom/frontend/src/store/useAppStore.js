@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { AGENTS as FALLBACK_AGENTS } from "../data/mockData";
+import { DUMMY_DEBATE } from "../data/dummyDebate";
 import { api } from "../lib/api";
 
 function createSessionId() {
@@ -108,6 +109,13 @@ const useAppStore = create(
       // Pending "comment" pin: set when the founder clicks Comment on a Whiteboard
       // card, cleared once the message is sent.
       pendingPin: null,
+      // Replay state
+      isReplaying: false,
+      replaySpeed: 1,
+      replayCurrentIndex: 0,
+      replayMessages: [],
+      replayWhiteboardProblems: [],
+      replayIntervalId: null,
 
       bootstrapSession: async () => {
         const token = get().token;
@@ -427,7 +435,19 @@ const useAppStore = create(
             }))
             .sort((a, b) => b.lastTimestamp - a.lastTimestamp);
 
-          set({ discussionHistory });
+          // Add dummy debate as a demo entry at the top
+          const dummyEntry = {
+            sessionId: "demo-replay-session",
+            topic: "🎬 DEMO: AI-powered restaurant where robots cook all meals with personalized menus",
+            messages: [],
+            lastTimestamp: Date.now(), // Current time to appear at top
+            totalMessages: 26,
+            report: null,
+            mode: "boardroom",
+            isDemo: true, // Flag to identify this as the demo
+          };
+
+          set({ discussionHistory: [dummyEntry, ...discussionHistory] });
 	        } catch {
 	          set({ discussionHistory: [] });
 	        } finally {
@@ -435,7 +455,32 @@ const useAppStore = create(
         }
       },
 
-      openHistoryDiscussion: (entry) =>
+      openHistoryDiscussion: (entry) => {
+        // Handle demo replay entry specially
+        if (entry.isDemo) {
+          // Load the dummy debate data directly
+          set((state) => ({
+            gameState: {
+              ...state.gameState,
+              mode: "boardroom",
+              setupPhase: "ready",
+              phase: "draft",
+              topic: DUMMY_DEBATE.topic,
+              sessionId: DUMMY_DEBATE.sessionId,
+              playerTeam: DUMMY_DEBATE.agents,
+              finalVerdict: DUMMY_DEBATE.verdict || null,
+            },
+            messages: DUMMY_DEBATE.messages,
+            followupQuestion: "",
+            suggestion: "",
+            whiteboard: {
+              problems: DUMMY_DEBATE.whiteboardProblems,
+              openQuestions: [],
+            },
+          }));
+          return;
+        }
+        
         set((state) => ({
           gameState: {
             ...state.gameState,
@@ -450,7 +495,14 @@ const useAppStore = create(
           messages: entry.messages || [],
           followupQuestion: "",
           suggestion: "",
-        })),
+        }));
+        
+        // Load whiteboard if this is a boardroom discussion
+        const mode = entry.report?.mode || entry.mode || "mentor";
+        if (mode === "boardroom") {
+          get().loadWhiteboard();
+        }
+      },
 
       sendMentorMessage: async (text, refersTo = null) => {
         const token = get().token;
@@ -762,7 +814,172 @@ const useAppStore = create(
           whiteboard: { problems: [], openQuestions: [] },
           suggestVerdict: false,
           pendingPin: null,
+          isReplaying: false,
+          replaySpeed: 1,
+          replayCurrentIndex: 0,
+          replayMessages: [],
+          replayWhiteboardProblems: [],
+          replayIntervalId: null,
         }),
+
+      // Replay control actions
+      startReplay: (debateData) => {
+        const { messages, whiteboardProblems, topic, agents } = debateData;
+        
+        // Clear any existing interval
+        const currentIntervalId = get().replayIntervalId;
+        if (currentIntervalId) {
+          clearInterval(currentIntervalId);
+        }
+
+        // Reset display
+        set({
+          isReplaying: true,
+          replayCurrentIndex: 0,
+          replayMessages: messages,
+          replayWhiteboardProblems: whiteboardProblems,
+          messages: [],
+          whiteboard: { problems: [], openQuestions: [] },
+          gameState: {
+            ...get().gameState,
+            topic,
+            playerTeam: agents,
+          },
+        });
+
+        // Start playback
+        get().resumeReplay();
+      },
+
+      pauseReplay: () => {
+        const intervalId = get().replayIntervalId;
+        if (intervalId) {
+          clearInterval(intervalId);
+        }
+        set({ replayIntervalId: null });
+      },
+
+      resumeReplay: () => {
+        // Clear any existing interval
+        const currentIntervalId = get().replayIntervalId;
+        if (currentIntervalId) {
+          clearInterval(currentIntervalId);
+        }
+
+        const { replaySpeed } = get();
+        const baseDelay = 1000; // 1 second at 1x
+        const delay = baseDelay / replaySpeed;
+
+        const intervalId = setInterval(() => {
+          const { replayCurrentIndex, replayMessages, replayWhiteboardProblems } = get();
+
+          if (replayCurrentIndex >= replayMessages.length) {
+            // Replay complete
+            get().stopReplay();
+            return;
+          }
+
+          const message = replayMessages[replayCurrentIndex];
+          
+          // Add message to display
+          set((state) => ({
+            messages: [...state.messages, message],
+            replayCurrentIndex: replayCurrentIndex + 1,
+          }));
+
+          // Handle whiteboard changes
+          if (message.whiteboardAction && message.problemId) {
+            const problem = replayWhiteboardProblems.find((p) => p.id === message.problemId);
+            if (!problem) return;
+
+            set((state) => {
+              let updatedProblems = [...(state.whiteboard.problems || [])];
+
+              if (message.whiteboardAction === "create") {
+                // Add new problem
+                updatedProblems.push({
+                  ...problem,
+                  status: "open",
+                  solution: null,
+                  resolvedBy: null,
+                  highlighted: true,
+                });
+              } else if (message.whiteboardAction === "resolve") {
+                // Resolve existing problem
+                updatedProblems = updatedProblems.map((p) =>
+                  p.id === message.problemId
+                    ? { ...p, status: "resolved", solution: message.solution || problem.solution, resolvedBy: problem.resolvedBy, highlighted: true }
+                    : p
+                );
+              } else if (message.whiteboardAction === "update") {
+                // Update existing problem
+                updatedProblems = updatedProblems.map((p) =>
+                  p.id === message.problemId ? { ...problem, highlighted: true } : p
+                );
+              }
+
+              return {
+                whiteboard: {
+                  ...state.whiteboard,
+                  problems: updatedProblems,
+                },
+              };
+            });
+
+            // Remove highlight after animation
+            setTimeout(() => {
+              set((state) => ({
+                whiteboard: {
+                  ...state.whiteboard,
+                  problems: (state.whiteboard.problems || []).map((p) =>
+                    p.id === message.problemId ? { ...p, highlighted: false } : p
+                  ),
+                },
+              }));
+            }, 2000);
+          }
+        }, delay);
+
+        set({ replayIntervalId: intervalId });
+      },
+
+      stopReplay: () => {
+        const intervalId = get().replayIntervalId;
+        if (intervalId) {
+          clearInterval(intervalId);
+        }
+
+        // Show final state
+        set((state) => ({
+          isReplaying: false,
+          replayIntervalId: null,
+          messages: state.replayMessages,
+          whiteboard: {
+            ...state.whiteboard,
+            problems: state.replayWhiteboardProblems.map((p) => ({ ...p, highlighted: false })),
+          },
+        }));
+      },
+
+      setReplaySpeed: (speed) => {
+        const isPlaying = get().replayIntervalId !== null;
+        set({ replaySpeed: speed });
+        
+        if (isPlaying) {
+          // Restart interval with new speed
+          get().pauseReplay();
+          get().resumeReplay();
+        }
+      },
+
+      toggleReplayPlayPause: () => {
+        const isPlaying = get().replayIntervalId !== null;
+        if (isPlaying) {
+          get().pauseReplay();
+        } else {
+          get().resumeReplay();
+        }
+      },
 
       toggleTheme: () =>
         set((state) => ({

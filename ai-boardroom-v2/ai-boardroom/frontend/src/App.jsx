@@ -101,10 +101,60 @@ function buildReportPdfSections({ verdict, mode, topic, playerTeam = [], opponen
     return sections;
   }
 
+  // ── Boardroom / Idea Validation report ──────────────────────
+  if (mode === "boardroom" || verdict.type === "boardroom") {
+    if (verdict.overallVerdict) {
+      sections.push({ type: "heading", text: "Overall Verdict" }, { type: "paragraph", text: verdict.overallVerdict });
+    }
+    if (verdict.executiveSummary) {
+      sections.push({ type: "heading", text: "Executive Summary" }, { type: "paragraph", text: verdict.executiveSummary });
+    }
+    if (verdict.scores) {
+      sections.push(
+        { type: "heading", text: "Viability Scores" },
+        {
+          type: "list",
+          items: [
+            `Market Opportunity: ${verdict.scores.marketOpportunity ?? "—"}/100`,
+            `Financial Viability: ${verdict.scores.financialViability ?? "—"}/100`,
+            `Technical Feasibility: ${verdict.scores.technicalFeasibility ?? "—"}/100`,
+            `Investment Attractiveness: ${verdict.scores.investmentAttractiveness ?? "—"}/100`,
+          ],
+        }
+      );
+    }
+    if (verdict.risks) {
+      sections.push(
+        { type: "heading", text: "Risk Assessment" },
+        {
+          type: "list",
+          items: [
+            `Legal Risk: ${verdict.risks.legalRisk ?? "—"}`,
+            `Ethical Risk: ${verdict.risks.ethicalRisk ?? "—"}`,
+            `Operational Risk: ${verdict.risks.operationalRisk ?? "—"}`,
+            `Market Risk: ${verdict.risks.marketRisk ?? "—"}`,
+          ],
+        }
+      );
+    }
+    if (verdict.keyStrengths?.length) {
+      sections.push({ type: "heading", text: "Key Strengths" }, { type: "list", items: verdict.keyStrengths });
+    }
+    if (verdict.criticalWeaknesses?.length) {
+      sections.push({ type: "heading", text: "Critical Weaknesses" }, { type: "list", items: verdict.criticalWeaknesses });
+    }
+    if (verdict.recommendedNextSteps?.length) {
+      sections.push({ type: "heading", text: "Recommended Next Steps" }, { type: "list", items: verdict.recommendedNextSteps });
+    }
+    if (verdict.councilNotes) {
+      sections.push({ type: "heading", text: "Council Notes" }, { type: "paragraph", text: verdict.councilNotes });
+    }
+    return sections;
+  }
+
   if (verdict.conclusion) {
     sections.push({ type: "heading", text: "Conclusion" }, { type: "paragraph", text: verdict.conclusion });
-  }
-  if (verdict.overallAssessment) {
+  }  if (verdict.overallAssessment) {
     sections.push({ type: "heading", text: "Overall Assessment" }, { type: "paragraph", text: verdict.overallAssessment });
   }
   if (verdict.temporaryDiagnosis) {
@@ -828,7 +878,13 @@ function App() {
 
     return (
       <>
-        <PhaseSelect onSelectPhase={setMode} />
+        <PhaseSelect 
+          onSelectPhase={setMode} 
+          onOpenHistory={() => {
+            loadDiscussionHistory();
+            setShowSetupHistory(true);
+          }} 
+        />
         <PersonaEditor
           isOpen={isPersonaEditorOpen}
           onClose={() => setIsPersonaEditorOpen(false)}

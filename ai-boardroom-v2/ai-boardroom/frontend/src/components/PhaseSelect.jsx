@@ -1,4 +1,4 @@
-import { Target, Hammer, TrendingUp, ArrowRight, Lock } from "lucide-react";
+import { Target, Hammer, TrendingUp, ArrowRight, Lock, History } from "lucide-react";
 import { Card, CardHeader, CardContent, CardFooter } from "./ui/Card";
 import { Button } from "./ui/Button";
 
@@ -35,7 +35,7 @@ const PHASES = [
 
 // PhaseSelect is the entry screen for AI Boardroom — pick which phase of the
 // product journey you're in. Only Idea Validation is wired up for now.
-function PhaseSelect({ onSelectPhase }) {
+function PhaseSelect({ onSelectPhase, onOpenHistory }) {
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-900 flex flex-col items-center justify-center p-8">
       <div className="text-center mb-12">
@@ -96,6 +96,19 @@ function PhaseSelect({ onSelectPhase }) {
           );
         })}
       </div>
+
+      {onOpenHistory ? (
+        <div className="mt-8">
+          <Button
+            variant="secondary"
+            size="large"
+            leftIcon={<History className="w-4 h-4" />}
+            onClick={onOpenHistory}
+          >
+            View Past Discussions
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

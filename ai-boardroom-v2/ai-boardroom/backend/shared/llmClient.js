@@ -21,9 +21,12 @@ const OLLAMA_ORCHESTRATOR_MODEL = resolveOllamaModel();
 const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 60000);
 const ORCHESTRATOR_TIMEOUT_MS = Number(process.env.ORCHESTRATOR_TIMEOUT_MS || 15000);
 const HAS_OPENROUTER_KEY = getOpenRouterApiKeys().length > 0;
+const HAS_QWEN_KEY = Boolean(process.env.QWEN_API_KEY);
+const LOCAL_API_URL = process.env.LOCAL_API_URL || "http://localhost:8000/api/ask";
+const LOCAL_API_ENABLED = process.env.LOCAL_API_ENABLED === "true";
 const ORCHESTRATOR_PROVIDER =
   process.env.ORCHESTRATOR_PROVIDER ||
-  (HAS_OPENROUTER_KEY ? "openrouter" : "");
+  (LOCAL_API_ENABLED ? "localapi" : HAS_QWEN_KEY ? "qwen" : HAS_OPENROUTER_KEY ? "openrouter" : "");
 const ORCHESTRATOR_MODEL = process.env.ORCHESTRATOR_MODEL || "";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -34,6 +37,7 @@ const GROK_MODEL =
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-sonnet-latest";
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat";
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001";
+const QWEN_MODEL = process.env.QWEN_MODEL || "qwen-plus";
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 90000);
 
 function getXaiApiKey() {
@@ -48,6 +52,8 @@ function getProviderPriority(preferredProvider) {
   };
 
   pushProvider(preferredProvider, Boolean(preferredProvider));
+  pushProvider("localapi", LOCAL_API_ENABLED);
+  pushProvider("qwen", HAS_QWEN_KEY);
   pushProvider("openrouter", HAS_OPENROUTER_KEY);
   pushProvider("gemini", Boolean(process.env.GEMINI_API_KEY));
   pushProvider("grok", Boolean(getXaiApiKey()));
@@ -186,8 +192,62 @@ async function callDeepSeek({ system, prompt, model = DEEPSEEK_MODEL, temperatur
   return response.data?.choices?.[0]?.message?.content?.trim() || "";
 }
 
-async function callOpenRouter({ system, prompt, model = OPENROUTER_MODEL, temperature = 0.4 }) {
-  const apiKeys = getOpenRouterApiKeys();
+async function callLocalApi({ system, prompt }) {
+  // Calls the local FastAPI bridge at http://localhost:8000/api/ask
+  // Tries chatgpt first, falls back to gemini automatically.
+  const LOCAL_PROVIDERS = ["chatgpt", "gemini"];
+  let lastError = null;
+
+  for (const localProvider of LOCAL_PROVIDERS) {
+    try {
+      const fullPrompt = system ? `${system}\n\n${prompt}` : prompt;
+      const response = await axios.post(
+        LOCAL_API_URL,
+        { provider: localProvider, prompt: fullPrompt },
+        {
+          timeout: LLM_TIMEOUT_MS,
+          headers: { "content-type": "application/json" },
+        }
+      );
+      const text = response.data?.response;
+      if (text) return String(text).trim();
+      throw new Error("Empty response from local API.");
+    } catch (error) {
+      lastError = error;
+      console.error(`Local API failed with provider "${localProvider}":`, error?.message);
+    }
+  }
+
+  throw lastError || new Error("Local API unavailable.");
+}
+
+async function callQwen({ system, prompt, model = QWEN_MODEL, temperature = 0.4 }) {
+  const apiKey = process.env.QWEN_API_KEY;
+  if (!apiKey) throw new Error("Missing QWEN_API_KEY.");
+
+  const response = await axios.post(
+    "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    {
+      model,
+      temperature,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ],
+    },
+    {
+      timeout: LLM_TIMEOUT_MS,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
+      },
+    }
+  );
+
+  return response.data?.choices?.[0]?.message?.content?.trim() || "";
+}
+
+async function callOpenRouter({ system, prompt, model = OPENROUTER_MODEL, temperature = 0.4 }) {  const apiKeys = getOpenRouterApiKeys();
   if (!apiKeys.length) throw new Error("Missing OPENROUTER_API_KEY or OPENROUTER_API_KEY1.");
 
   let lastError = null;
@@ -261,6 +321,15 @@ async function callAgentLLM({ provider, model, system, prompt, temperature = 0.4
             model: provider === "deepseek" ? requestedModel : DEEPSEEK_MODEL,
             temperature,
           });
+        case "qwen":
+          return await callQwen({
+            system,
+            prompt,
+            model: provider === "qwen" ? requestedModel : QWEN_MODEL,
+            temperature,
+          });
+        case "localapi":
+          return await callLocalApi({ system, prompt });
         case "openrouter":
           return await callOpenRouter({
             system,
@@ -328,6 +397,15 @@ async function callOrchestratorLLM({ system, prompt, temperature = 0.4, ollamaMo
             model: ORCHESTRATOR_MODEL || DEEPSEEK_MODEL,
             temperature,
           });
+        case "qwen":
+          return await callQwen({
+            system,
+            prompt,
+            model: ORCHESTRATOR_MODEL || QWEN_MODEL,
+            temperature,
+          });
+        case "localapi":
+          return await callLocalApi({ system, prompt });
         case "openrouter":
           return await callOpenRouter({
             system,
@@ -365,5 +443,7 @@ export {
   callClaude,
   callDeepSeek,
   callOpenRouter,
+  callQwen,
+  callLocalApi,
   OLLAMA_ORCHESTRATOR_MODEL,
 };

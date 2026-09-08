@@ -362,12 +362,89 @@ async function finalizeFantasyVerdict({ topic, playerTeam, opponentTeam, combatL
 }
 
 // ─────────────────────────────────────────────────────────────
+// BOARDROOM MODE VERDICT
+// ─────────────────────────────────────────────────────────────
+
+async function finalizeBoardroomVerdict({ topic, playerTeam = [], opponentTeam = [], combatLog = [], ollamaModel = "" }) {
+  const discussion = summarizeCombatLog(combatLog);
+  const system = "You are a business analysis panel delivering a structured Idea Validation verdict. Return strict JSON only.";
+  const prompt = `Business idea: "${topic}"
+
+Council discussion summary:
+${discussion.slice(0, 4000)}
+
+Deliver a structured boardroom verdict with scores and analysis. Return JSON:
+{
+  "type": "boardroom",
+  "overallVerdict": "Go|Conditional Go|No-Go",
+  "executiveSummary": "2-3 sentence summary of the council's conclusion",
+  "scores": {
+    "marketOpportunity": 0-100,
+    "financialViability": 0-100,
+    "technicalFeasibility": 0-100,
+    "investmentAttractiveness": 0-100
+  },
+  "risks": {
+    "legalRisk": "Low|Medium|High",
+    "ethicalRisk": "Low|Medium|High",
+    "operationalRisk": "Low|Medium|High",
+    "marketRisk": "Low|Medium|High"
+  },
+  "criticalWeaknesses": ["weakness1", "weakness2", "weakness3"],
+  "keyStrengths": ["strength1", "strength2", "strength3"],
+  "recommendedNextSteps": ["step1", "step2", "step3"],
+  "councilNotes": "Additional context or conditions for the verdict"
+}`;
+
+  try {
+    const raw = await callOrchestratorLLM({ system, prompt, temperature: 0.3, ollamaModel });
+    const jsonText = extractFirstJsonObject(raw);
+    const parsed = JSON.parse(jsonText || "{}");
+    return {
+      type: "boardroom",
+      overallVerdict: ["Go", "Conditional Go", "No-Go"].includes(parsed.overallVerdict) ? parsed.overallVerdict : "Conditional Go",
+      executiveSummary: String(parsed.executiveSummary || "").trim(),
+      scores: {
+        marketOpportunity: clampNumber(Number(parsed.scores?.marketOpportunity || 50), { min: 0, max: 100, fallback: 50 }),
+        financialViability: clampNumber(Number(parsed.scores?.financialViability || 50), { min: 0, max: 100, fallback: 50 }),
+        technicalFeasibility: clampNumber(Number(parsed.scores?.technicalFeasibility || 50), { min: 0, max: 100, fallback: 50 }),
+        investmentAttractiveness: clampNumber(Number(parsed.scores?.investmentAttractiveness || 50), { min: 0, max: 100, fallback: 50 }),
+      },
+      risks: {
+        legalRisk: ["Low", "Medium", "High"].includes(parsed.risks?.legalRisk) ? parsed.risks.legalRisk : "Medium",
+        ethicalRisk: ["Low", "Medium", "High"].includes(parsed.risks?.ethicalRisk) ? parsed.risks.ethicalRisk : "Low",
+        operationalRisk: ["Low", "Medium", "High"].includes(parsed.risks?.operationalRisk) ? parsed.risks.operationalRisk : "Medium",
+        marketRisk: ["Low", "Medium", "High"].includes(parsed.risks?.marketRisk) ? parsed.risks.marketRisk : "Medium",
+      },
+      criticalWeaknesses: Array.isArray(parsed.criticalWeaknesses) ? parsed.criticalWeaknesses.map(String) : [],
+      keyStrengths: Array.isArray(parsed.keyStrengths) ? parsed.keyStrengths.map(String) : [],
+      recommendedNextSteps: Array.isArray(parsed.recommendedNextSteps) ? parsed.recommendedNextSteps.map(String) : [],
+      councilNotes: String(parsed.councilNotes || "").trim(),
+    };
+  } catch (_) {}
+
+  return {
+    type: "boardroom",
+    overallVerdict: "Conditional Go",
+    executiveSummary: "The council identified significant opportunities alongside key risks. A pivot is recommended before proceeding.",
+    scores: { marketOpportunity: 60, financialViability: 50, technicalFeasibility: 55, investmentAttractiveness: 50 },
+    risks: { legalRisk: "Medium", ethicalRisk: "Low", operationalRisk: "Medium", marketRisk: "Medium" },
+    criticalWeaknesses: ["Unit economics need validation", "Regulatory path unclear", "Capital requirements high"],
+    keyStrengths: ["Innovative concept", "Clear market need identified"],
+    recommendedNextSteps: ["Validate unit economics", "Run a small-scale pilot", "Consult regulatory experts"],
+    councilNotes: "Revisit after addressing the critical weaknesses.",
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
 // MAIN VERDICT DISPATCHER - Routes to mode-specific handlers
 // ─────────────────────────────────────────────────────────────
 
 async function finalizeDebateVerdict({ topic, playerTeam = [], opponentTeam = [], combatLog = [], roundResults = [], scores = {}, ollamaModel = "", mode = "combat" }) {
   // Route to appropriate mode handler
   switch(mode) {
+    case "boardroom":
+      return await finalizeBoardroomVerdict({ topic, playerTeam, opponentTeam, combatLog, roundResults, scores, ollamaModel });
     case "mentor":
       return await finalizeMentorVerdict({ topic, playerTeam, opponentTeam, combatLog, roundResults, scores, ollamaModel });
     case "interview-simulator":

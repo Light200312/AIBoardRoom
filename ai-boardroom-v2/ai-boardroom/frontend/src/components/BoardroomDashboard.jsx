@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, Volume2, Square, X, Sparkles } from "lucide-react";
+import { Send, Volume2, Square, X, Sparkles, Play, Pause, StopCircle } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Whiteboard } from "./Whiteboard";
 import { useAppStore } from "../store/useAppStore";
+import { DUMMY_DEBATE } from "../data/dummyDebate";
 
 function pickPreferredVoice(voices = []) {
   return (
@@ -33,11 +34,24 @@ function BoardroomDashboard({ topic, members, onRequestVerdict }) {
   const setPendingPin = useAppStore((state) => state.setPendingPin);
   const clearPendingPin = useAppStore((state) => state.clearPendingPin);
 
+  // Replay state
+  const isReplaying = useAppStore((state) => state.isReplaying);
+  const replaySpeed = useAppStore((state) => state.replaySpeed);
+  const replayCurrentIndex = useAppStore((state) => state.replayCurrentIndex);
+  const replayMessages = useAppStore((state) => state.replayMessages);
+  const replayIntervalId = useAppStore((state) => state.replayIntervalId);
+  const startReplay = useAppStore((state) => state.startReplay);
+  const stopReplay = useAppStore((state) => state.stopReplay);
+  const setReplaySpeed = useAppStore((state) => state.setReplaySpeed);
+  const toggleReplayPlayPause = useAppStore((state) => state.toggleReplayPlayPause);
+
   const [inputValue, setInputValue] = useState("");
   const [speakingMessageId, setSpeakingMessageId] = useState("");
   const [speechReady, setSpeechReady] = useState(false);
   const messagesEndRef = useRef(null);
   const availableVoicesRef = useRef([]);
+  
+  const isPlaying = replayIntervalId !== null;
 
   useEffect(() => {
     if (token) loadMessages();
@@ -74,10 +88,14 @@ function BoardroomDashboard({ topic, members, onRequestVerdict }) {
   }, []);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isReplaying) return;
     const text = inputValue;
     setInputValue("");
     await sendMentorMessage(text, pendingPin);
+  };
+
+  const handleStartReplay = () => {
+    startReplay(DUMMY_DEBATE);
   };
 
   const handleSpeakMessage = (msg) => {
@@ -108,12 +126,74 @@ function BoardroomDashboard({ topic, members, onRequestVerdict }) {
     <div className="grid grid-cols-12 gap-6 h-[calc(100vh-7rem)]">
       <div className="col-span-8 flex flex-col min-h-0">
         <div className="bg-white dark:bg-slate-800 border-2 border-b-0 border-dashed border-slate-300 dark:border-slate-700 rounded-t-xl px-4 py-3 flex-shrink-0">
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Council Discussion</h2>
-            <span className="text-sm text-slate-500 dark:text-slate-400 font-mono truncate">— {topic}</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Council Discussion</h2>
+              <span className="text-sm text-slate-500 dark:text-slate-400 font-mono truncate">— {topic}</span>
+            </div>
+            
+            {/* Replay Controls */}
+            <div className="flex items-center gap-2">
+              {isReplaying ? (
+                <>
+                  {/* Replay Mode Indicator */}
+                  <div className="px-2.5 py-1 rounded-full bg-red-100 dark:bg-red-900/40 border border-red-300 dark:border-red-700">
+                    <span className="text-[10px] font-bold text-red-700 dark:text-red-300 uppercase tracking-wider">
+                      Replay
+                    </span>
+                  </div>
+                  
+                  {/* Progress */}
+                  <div className="text-xs font-mono text-slate-600 dark:text-slate-400">
+                    {replayCurrentIndex}/{replayMessages.length}
+                  </div>
+                  
+                  {/* Speed Control */}
+                  <select
+                    value={replaySpeed}
+                    onChange={(e) => setReplaySpeed(Number(e.target.value))}
+                    className="h-7 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 text-xs text-slate-700 dark:text-slate-200"
+                  >
+                    <option value={0.5}>0.5x</option>
+                    <option value={1}>1x</option>
+                    <option value={2}>2x</option>
+                    <option value={4}>4x</option>
+                  </select>
+                  
+                  {/* Play/Pause */}
+                  <button
+                    onClick={toggleReplayPlayPause}
+                    className="p-1.5 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"
+                    title={isPlaying ? "Pause" : "Play"}
+                  >
+                    {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                  </button>
+                  
+                  {/* Stop */}
+                  <button
+                    onClick={stopReplay}
+                    className="p-1.5 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-900/30 text-slate-700 dark:text-slate-200 hover:text-red-600 dark:hover:text-red-400"
+                    title="Stop Replay"
+                  >
+                    <StopCircle className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              ) : (
+                /* Show Replay Button for demo */
+                <Button
+                  size="small"
+                  variant="secondary"
+                  onClick={handleStartReplay}
+                  leftIcon={<Play className="w-3.5 h-3.5" />}
+                >
+                  Replay Demo
+                </Button>
+              )}
+            </div>
           </div>
+          
           {/* Member ribbon: replaces the old sidebar "Present Members" list */}
-          <div className="mt-2 flex items-center gap-2 overflow-x-auto">
+          <div className="flex items-center gap-2 overflow-x-auto">
             {members.map((member) => (
               <div
                 key={member.id}
@@ -248,13 +328,19 @@ function BoardroomDashboard({ topic, members, onRequestVerdict }) {
             <div className="flex gap-2">
               <div className="flex-1">
                 <Input
-                  placeholder="Contribute to the discussion..."
+                  placeholder={isReplaying ? "Message input disabled during replay..." : "Contribute to the discussion..."}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                  disabled={isReplaying}
                 />
               </div>
-              <Button onClick={handleSendMessage} rightIcon={<Send className="w-4 h-4" />} loading={isLoadingReply}>
+              <Button 
+                onClick={handleSendMessage} 
+                rightIcon={<Send className="w-4 h-4" />} 
+                loading={isLoadingReply}
+                disabled={isReplaying}
+              >
                 Send
               </Button>
             </div>

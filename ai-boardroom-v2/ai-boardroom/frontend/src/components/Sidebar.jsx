@@ -52,7 +52,7 @@ function Sidebar({
         <div className={`flex items-center ${collapsed ? "flex-col gap-2" : "justify-between"}`}>
           <div className={`flex items-center gap-3 ${collapsed ? "flex-col" : ""}`}>
             <div className="w-8 h-8 bg-slate-900 dark:bg-white rounded-md flex items-center justify-center flex-shrink-0">
-              <span className="text-white dark:text-slate-900 font-bold font-mono text-xs">AB</span>
+              <span className="text-white dark:text-slate-900 font-bold font-mono text-xs">AI</span>
             </div>
             {!collapsed ? (
               <div>
