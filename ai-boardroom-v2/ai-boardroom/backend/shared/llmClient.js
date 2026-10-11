@@ -192,10 +192,11 @@ async function callDeepSeek({ system, prompt, model = DEEPSEEK_MODEL, temperatur
   return response.data?.choices?.[0]?.message?.content?.trim() || "";
 }
 
-async function callLocalApi({ system, prompt }) {
+async function callLocalApi({ system, prompt, localApiProvider = "" }) {
   // Calls the local FastAPI bridge at http://localhost:8000/api/ask
-  // Tries chatgpt first, falls back to gemini automatically.
-  const LOCAL_PROVIDERS = ["chatgpt", "gemini"];
+  // Tries the user-selected provider first, then gemini as fallback.
+  const preferred = localApiProvider && localApiProvider !== "gemini" ? localApiProvider : "chatgpt";
+  const LOCAL_PROVIDERS = [preferred, "gemini"].filter((v, i, arr) => arr.indexOf(v) === i);
   let lastError = null;
 
   for (const localProvider of LOCAL_PROVIDERS) {
@@ -286,7 +287,7 @@ async function callOpenRouter({ system, prompt, model = OPENROUTER_MODEL, temper
   throw lastError || new Error("OpenRouter request failed.");
 }
 
-async function callAgentLLM({ provider, model, system, prompt, temperature = 0.4 }) {
+async function callAgentLLM({ provider, model, system, prompt, temperature = 0.4, localApiProvider = "" }) {
   const providerCandidates = getProviderPriority(provider);
   const requestedModel = model || process.env.OPENROUTER_MODEL || OPENROUTER_MODEL;
 
@@ -329,7 +330,7 @@ async function callAgentLLM({ provider, model, system, prompt, temperature = 0.4
             temperature,
           });
         case "localapi":
-          return await callLocalApi({ system, prompt });
+          return await callLocalApi({ system, prompt, localApiProvider });
         case "openrouter":
           return await callOpenRouter({
             system,
@@ -361,7 +362,7 @@ async function callAgentLLM({ provider, model, system, prompt, temperature = 0.4
   return "I could not reach the model right now. Please continue and I will respond on the next turn.";
 }
 
-async function callOrchestratorLLM({ system, prompt, temperature = 0.4, ollamaModel = "" }) {
+async function callOrchestratorLLM({ system, prompt, temperature = 0.4, ollamaModel = "", localApiProvider = "" }) {
   const strictProviderCandidates = getStrictProviderList(process.env.ORCHESTRATOR_PROVIDER);
   const providerCandidates = strictProviderCandidates.length
     ? strictProviderCandidates
@@ -405,7 +406,7 @@ async function callOrchestratorLLM({ system, prompt, temperature = 0.4, ollamaMo
             temperature,
           });
         case "localapi":
-          return await callLocalApi({ system, prompt });
+          return await callLocalApi({ system, prompt, localApiProvider });
         case "openrouter":
           return await callOpenRouter({
             system,

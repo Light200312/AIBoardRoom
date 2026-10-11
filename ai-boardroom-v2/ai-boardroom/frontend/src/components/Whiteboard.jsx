@@ -1,11 +1,26 @@
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, HelpCircle, MessageSquarePlus, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, HelpCircle, MessageSquarePlus, MousePointerClick, Trash2 } from "lucide-react";
 import { Card } from "./ui/Card";
 
 // A single problem card. Open problems are red and always expanded (they're
 // the active flaw the council is pressing on). Resolved problems collapse to
 // a strikethrough summary; expanding reveals the solution in blue.
-function ProblemCard({ problem, onComment, onFounderOp }) {
+function TranscriptLink({ messageId, label, onNavigateToMessage }) {
+  if (!messageId || !onNavigateToMessage) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigateToMessage(messageId)}
+      className="inline-flex items-center gap-1 text-[10px] font-mono text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-200"
+    >
+      <MousePointerClick className="h-3 w-3" />
+      {label}
+    </button>
+  );
+}
+
+function ProblemCard({ problem, onComment, onFounderOp, onNavigateToMessage }) {
   const isResolved = problem.status === "resolved";
   const [expanded, setExpanded] = useState(!isResolved);
 
@@ -52,6 +67,13 @@ function ProblemCard({ problem, onComment, onFounderOp }) {
           Raised by {problem.raisedBy}
         </p>
       ) : null}
+
+      <div className="mt-1 ml-6 flex flex-wrap gap-x-3 gap-y-1">
+        <TranscriptLink messageId={problem.raisedMessageId} label="View raised message" onNavigateToMessage={onNavigateToMessage} />
+        {isResolved ? (
+          <TranscriptLink messageId={problem.resolvedMessageId} label="View solution message" onNavigateToMessage={onNavigateToMessage} />
+        ) : null}
+      </div>
 
       {isResolved && expanded ? (
         <div className="mt-2 ml-6 rounded-lg bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900 px-3 py-2">
@@ -100,7 +122,7 @@ function ProblemCard({ problem, onComment, onFounderOp }) {
   );
 }
 
-function QuestionCard({ question, onComment, onFounderOp }) {
+function QuestionCard({ question, onComment, onFounderOp, onNavigateToMessage }) {
   const isResolved = question.status === "resolved";
   return (
     <div className="group rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3">
@@ -115,6 +137,12 @@ function QuestionCard({ question, onComment, onFounderOp }) {
           Raised by {question.raisedBy}
         </p>
       ) : null}
+      <div className="mt-1 ml-6 flex flex-wrap gap-x-3 gap-y-1">
+        <TranscriptLink messageId={question.raisedMessageId} label="View raised message" onNavigateToMessage={onNavigateToMessage} />
+        {isResolved ? (
+          <TranscriptLink messageId={question.resolvedMessageId} label="View answer message" onNavigateToMessage={onNavigateToMessage} />
+        ) : null}
+      </div>
       {isResolved ? (
         <div className="mt-2 ml-6 rounded-lg bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900 px-3 py-2">
           <p className="text-[10px] font-mono uppercase tracking-wider text-blue-500 dark:text-blue-400 mb-1">
@@ -152,7 +180,7 @@ function QuestionCard({ question, onComment, onFounderOp }) {
 
 // Whiteboard — the Boardroom's shared "single source of truth" board.
 // Sits where the Mentor Dashboard's right sidebar used to be.
-function Whiteboard({ whiteboard, isLoading, onComment, onFounderOp }) {
+function Whiteboard({ whiteboard, isLoading, onComment, onFounderOp, onNavigateToMessage }) {
   const problems = whiteboard?.problems || [];
   const openQuestions = whiteboard?.openQuestions || [];
   const openProblems = problems.filter((p) => p.status !== "resolved");
@@ -177,10 +205,22 @@ function Whiteboard({ whiteboard, isLoading, onComment, onFounderOp }) {
         ) : null}
 
         {openProblems.map((problem) => (
-          <ProblemCard key={problem.id} problem={problem} onComment={onComment} onFounderOp={onFounderOp} />
+          <ProblemCard
+            key={problem.id}
+            problem={problem}
+            onComment={onComment}
+            onFounderOp={onFounderOp}
+            onNavigateToMessage={onNavigateToMessage}
+          />
         ))}
         {resolvedProblems.map((problem) => (
-          <ProblemCard key={problem.id} problem={problem} onComment={onComment} onFounderOp={onFounderOp} />
+          <ProblemCard
+            key={problem.id}
+            problem={problem}
+            onComment={onComment}
+            onFounderOp={onFounderOp}
+            onNavigateToMessage={onNavigateToMessage}
+          />
         ))}
 
         {openQuestions.length ? (
@@ -190,7 +230,13 @@ function Whiteboard({ whiteboard, isLoading, onComment, onFounderOp }) {
             </p>
             <div className="space-y-3">
               {openQuestions.map((question) => (
-                <QuestionCard key={question.id} question={question} onComment={onComment} onFounderOp={onFounderOp} />
+                <QuestionCard
+                  key={question.id}
+                  question={question}
+                  onComment={onComment}
+                  onFounderOp={onFounderOp}
+                  onNavigateToMessage={onNavigateToMessage}
+                />
               ))}
             </div>
           </div>

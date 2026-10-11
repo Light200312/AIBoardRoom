@@ -49,11 +49,21 @@ function OptionGroup({ title, description, options, selectedValue, onChange, dis
 const API_PROVIDERS = [
   { id: "localapi", label: "Local API (port 8000)" },
   { id: "openrouter", label: "OpenRouter" },
-  { id: "ollama", label: "Ollama (Local)" },
   { id: "qwen", label: "Qwen" },
   { id: "gemini", label: "Gemini" },
+  { id: "grok", label: "Grok" },
   { id: "claude", label: "Claude" },
-  { id: "deepsearch", label: "DeepSearch" },
+  { id: "deepseek", label: "DeepSeek" },
+  { id: "ollama", label: "Ollama (Local)" },
+];
+
+// Sub-providers available through the local API bridge (http://localhost:8000)
+const LOCAL_API_PROVIDERS = [
+  { id: "chatgpt", label: "ChatGPT" },
+  { id: "gemini", label: "Gemini" },
+  { id: "grok", label: "Grok" },
+  { id: "claude", label: "Claude" },
+  { id: "deepseek", label: "DeepSeek" },
 ];
 
 // ProfilePage holds account info, appearance, and the routing/model settings
@@ -79,8 +89,11 @@ function ProfilePage({ onBack }) {
   const setDefaultApi = useAppStore((state) => state.setDefaultApi);
   const fallbackApi = useAppStore((state) => state.fallbackApi);
   const setFallbackApi = useAppStore((state) => state.setFallbackApi);
+  const localApiProvider = useAppStore((state) => state.localApiProvider);
+  const setLocalApiProvider = useAppStore((state) => state.setLocalApiProvider);
 
   const isSingleMode = aiMode === "single";
+  const isLocalApi = defaultApi === "localapi";
 
   const apiModes = [
     { id: "persona", label: "Per Personality" },
@@ -186,6 +199,45 @@ function ProfilePage({ onBack }) {
         selectedValue={defaultApi}
         onChange={setDefaultApi}
       />
+
+      {/* ── Local API Sub-provider (only when Local API is selected) ── */}
+      {isLocalApi && (
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Local API Provider</h3>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Choose which AI provider the local bridge (port 8000) uses first. Falls back to Gemini automatically if the primary fails.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-4 space-y-3">
+            <p className="text-xs font-mono text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+              Primary → fallback: {localApiProvider} → gemini
+            </p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {LOCAL_API_PROVIDERS.map((option) => {
+                const isActive = localApiProvider === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setLocalApiProvider(option.id)}
+                    className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-left transition-all duration-200 ${
+                      isActive
+                        ? "border-blue-600 dark:border-blue-400 bg-blue-600 dark:bg-blue-500 text-white shadow-sm"
+                        : "border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-600"
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{option.label}</span>
+                    {isActive && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Primary</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Fallback API (only visible in Multi AI mode) ── */}
       {!isSingleMode && (

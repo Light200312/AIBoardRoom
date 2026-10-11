@@ -46,16 +46,25 @@ function getAgentModelConfig(agentId, ollamaModel) {
 
 function resolveAgentModelConfig(agentId, apiRoutingMode = "persona", ollamaModel) {
   if (apiRoutingMode === "ollama_only") {
-    return {
-      provider: "ollama",
-      model: resolveOllamaModel(ollamaModel),
-    };
+    return { provider: "ollama", model: resolveOllamaModel(ollamaModel) };
   }
   if (apiRoutingMode === "openrouter_only") {
     return {
       provider: "openrouter",
       model: process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001",
     };
+  }
+  // Direct provider overrides from the profile page defaultApi selector
+  const directProviders = ["localapi", "qwen", "gemini", "grok", "claude", "deepseek", "openrouter", "ollama"];
+  if (directProviders.includes(apiRoutingMode)) {
+    if (apiRoutingMode === "ollama") return { provider: "ollama", model: resolveOllamaModel(ollamaModel) };
+    if (apiRoutingMode === "qwen") return { provider: "qwen", model: process.env.QWEN_MODEL || "qwen-plus" };
+    if (apiRoutingMode === "gemini") return { provider: "gemini", model: process.env.GEMINI_MODEL || "gemini-2.5-flash" };
+    if (apiRoutingMode === "grok") return { provider: "grok", model: process.env.GROK_MODEL || "grok-3" };
+    if (apiRoutingMode === "claude") return { provider: "claude", model: process.env.CLAUDE_MODEL || "claude-3-5-sonnet-latest" };
+    if (apiRoutingMode === "deepseek" || apiRoutingMode === "deepsearch") return { provider: "deepseek", model: process.env.DEEPSEEK_MODEL || "deepseek-chat" };
+    if (apiRoutingMode === "openrouter") return { provider: "openrouter", model: process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001" };
+    if (apiRoutingMode === "localapi") return { provider: "localapi", model: "" };
   }
   if (hasOpenRouterKey()) {
     return {

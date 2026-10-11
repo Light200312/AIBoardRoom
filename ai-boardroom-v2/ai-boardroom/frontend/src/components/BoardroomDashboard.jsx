@@ -49,6 +49,7 @@ function BoardroomDashboard({ topic, members, onRequestVerdict }) {
   const [speakingMessageId, setSpeakingMessageId] = useState("");
   const [speechReady, setSpeechReady] = useState(false);
   const messagesEndRef = useRef(null);
+  const messageRefs = useRef(new Map());
   const availableVoicesRef = useRef([]);
   
   const isPlaying = replayIntervalId !== null;
@@ -120,6 +121,17 @@ function BoardroomDashboard({ topic, members, onRequestVerdict }) {
     setSpeakingMessageId(msg.id);
     synth.speak(utterance);
     synth.resume();
+  };
+
+  const handleNavigateToMessage = (messageId) => {
+    const messageElement = messageRefs.current.get(messageId);
+    if (!messageElement) return;
+
+    messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
+    messageElement.classList.add("ring-2", "ring-blue-400", "rounded-2xl");
+    window.setTimeout(() => {
+      messageElement.classList.remove("ring-2", "ring-blue-400", "rounded-2xl");
+    }, 1800);
   };
 
   return (
@@ -232,7 +244,14 @@ function BoardroomDashboard({ topic, members, onRequestVerdict }) {
             {messages.map((msg) => {
               const isOrchestrator = msg.speakerId === "orchestrator";
               return (
-                <div key={msg.id} className={`flex gap-4 ${msg.isUser ? "flex-row-reverse" : ""}`}>
+                <div
+                  key={msg.id}
+                  ref={(element) => {
+                    if (element) messageRefs.current.set(msg.id, element);
+                    else messageRefs.current.delete(msg.id);
+                  }}
+                  className={`flex gap-4 transition-shadow ${msg.isUser ? "flex-row-reverse" : ""}`}
+                >
                   <div
                     className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 font-mono font-bold text-sm ${
                       msg.isUser
@@ -354,6 +373,7 @@ function BoardroomDashboard({ topic, members, onRequestVerdict }) {
           isLoading={isLoadingWhiteboard}
           onComment={(pin) => setPendingPin(pin)}
           onFounderOp={(op) => applyFounderWhiteboardOp(op)}
+          onNavigateToMessage={handleNavigateToMessage}
         />
       </div>
     </div>

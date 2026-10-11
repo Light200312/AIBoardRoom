@@ -57,11 +57,11 @@ async function saveWhiteboard(sessionId, board) {
 /**
  * applyWhiteboardOps - Merge a list of ops into a board. Pure function.
  * Supported op types:
- *   add_problem      { text, raisedBy }
- *   resolve_problem   { id, solution, resolvedBy }
+ *   add_problem      { text, raisedBy, raisedMessageId }
+ *   resolve_problem   { id, solution, resolvedBy, resolvedMessageId }
  *   reopen_problem    { id }
- *   add_question      { text, raisedBy }
- *   resolve_question  { id, answer, resolvedBy }
+ *   add_question      { text, raisedBy, raisedMessageId }
+ *   resolve_question  { id, answer, resolvedBy, resolvedMessageId }
  *   delete_problem    { id }   (founder human-override)
  *   delete_question   { id }   (founder human-override)
  */
@@ -83,6 +83,7 @@ function applyWhiteboardOps(board, ops = []) {
           id: generateMessageId(),
           text,
           raisedBy: String(op.raisedBy || "").trim(),
+          raisedMessageId: String(op.raisedMessageId || "").trim(),
           status: "open",
           solution: "",
           resolvedBy: "",
@@ -100,6 +101,7 @@ function applyWhiteboardOps(board, ops = []) {
                 status: "resolved",
                 solution: String(op.solution || p.solution || "").trim(),
                 resolvedBy: String(op.resolvedBy || "").trim(),
+                resolvedMessageId: String(op.resolvedMessageId || p.resolvedMessageId || "").trim(),
                 resolvedAt: Date.now(),
               }
             : p
@@ -120,6 +122,7 @@ function applyWhiteboardOps(board, ops = []) {
           id: generateMessageId(),
           text,
           raisedBy: String(op.raisedBy || "").trim(),
+          raisedMessageId: String(op.raisedMessageId || "").trim(),
           status: "open",
           answer: "",
           resolvedBy: "",
@@ -136,6 +139,8 @@ function applyWhiteboardOps(board, ops = []) {
                 status: "resolved",
                 answer: String(op.answer || q.answer || "").trim(),
                 resolvedBy: String(op.resolvedBy || "").trim(),
+                resolvedMessageId: String(op.resolvedMessageId || q.resolvedMessageId || "").trim(),
+                resolvedAt: Date.now(),
               }
             : q
         );

@@ -33,12 +33,14 @@ export async function listMessages(req, res) {
 /**
  * createMessage - Store a new message in the conversation
  * WHY: Persist messages for audit trail and session history
- * HOW: Validate required fields, sanitize arrays, generate unique ID, save to DB
- * RESULT: Created message object with generated ID and timestamp
+ * HOW: Validate required fields, sanitize arrays, preserve a supplied transcript
+ *      ID when available, and save to DB
+ * RESULT: Created message object with a stable ID and timestamp
  */
 export async function createMessage(req, res) {
   try {
     const {
+      id,
       sessionId,
       topic,
       sessionParticipantIds = [],
@@ -55,7 +57,10 @@ export async function createMessage(req, res) {
     if (!speakerId || !speakerName || !speakerInitials || typeof isUser !== "boolean" || !text) return res.status(400).json({ message: "Invalid message payload." });
     if (!sessionId || !topic) return res.status(400).json({ message: "sessionId and topic are required." });
     const created = await Message.create({
-      id: generateMessageId(), sessionId, topic,
+      // Orchestrator-created Whiteboard entries reference the source message ID.
+      // Preserve that ID when the frontend persists the transcript so links also
+      // work after reopening a past discussion.
+      id: String(id || generateMessageId()), sessionId, topic,
       sessionParticipantIds: sanitizeStringArray(sessionParticipantIds),
       sessionParticipants: Array.isArray(sessionParticipants) ? sessionParticipants.map((p) => ({ id: String(p?.id || "").trim(), name: String(p?.name || "").trim(), role: String(p?.role || "").trim(), avatarInitials: String(p?.avatarInitials || "").trim() })).filter((p) => p.id && p.name) : [],
       speakerId, speakerName, speakerInitials, isUser, text, timestamp: timestamp || Date.now(),

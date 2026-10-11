@@ -51,6 +51,7 @@ export async function run(req, res) {
       allowMetaMemory = false,
       metaMemory = null,
       apiRoutingMode = "persona",
+      localApiProvider = "",
       ollamaModel = "",
       orchestratorMode = "fast",
       memoryMode = "minimal",
@@ -60,12 +61,10 @@ export async function run(req, res) {
       toolCallingEnabled = false,
     } = req.body || {};
     
-    // Validate that the task goal is provided (required field)
     if (!taskGoal) {
       return res.status(400).json({ message: "taskGoal is required." });
     }
     
-    // Call the orchestration service with validated parameters
     const result = await orchestrateTask({
       taskGoal,
       selectedAgentIds,
@@ -74,6 +73,7 @@ export async function run(req, res) {
       allowMetaMemory,
       metaMemory,
       apiRoutingMode,
+      localApiProvider,
       ollamaModel,
       orchestratorMode,
       memoryMode,

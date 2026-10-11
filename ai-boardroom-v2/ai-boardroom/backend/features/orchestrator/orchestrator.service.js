@@ -483,6 +483,7 @@ async function orchestrateTask({
   allowMetaMemory = false,
   metaMemory = null,
   apiRoutingMode = "persona",
+  localApiProvider = "",
   ollamaModel = "",
   orchestratorMode = "fast",
   memoryMode = "minimal",
@@ -613,7 +614,19 @@ async function orchestrateTask({
   if (isBoardroom && whiteboard) {
     const ops = await planWhiteboardUpdate({ taskGoal, board: whiteboard, latestMessage: agentMessage, ollamaModel });
     if (ops.length) {
-      whiteboard = applyWhiteboardOps(whiteboard, ops);
+      // Every AI-generated board update originates in this agent turn. Persist
+      // that link so a Whiteboard card can take the founder directly back to
+      // the transcript message that raised or resolved it.
+      const linkedOps = ops.map((op) => {
+        if (op.type === "add_problem" || op.type === "add_question") {
+          return { ...op, raisedMessageId: agentMessage.id };
+        }
+        if (op.type === "resolve_problem" || op.type === "resolve_question") {
+          return { ...op, resolvedMessageId: agentMessage.id };
+        }
+        return op;
+      });
+      whiteboard = applyWhiteboardOps(whiteboard, linkedOps);
       whiteboard = await saveWhiteboard(scope.sessionId, whiteboard);
       whiteboardContext = buildWhiteboardContextText(whiteboard);
     }

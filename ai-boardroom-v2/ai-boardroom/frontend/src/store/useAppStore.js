@@ -86,8 +86,9 @@ const useAppStore = create(
       // Single AI mode uses only the defaultApi; Multi AI mode uses per-persona routing
       // with a fallback.
       aiMode: "single",
-      defaultApi: "openrouter",
-      fallbackApi: "ollama",
+      defaultApi: "localapi",
+      fallbackApi: "openrouter",
+      localApiProvider: "chatgpt", // sub-provider used when defaultApi === "localapi"
       agents: FALLBACK_AGENTS,
       messages: [],
       discussionHistory: [],
@@ -218,13 +219,16 @@ const useAppStore = create(
       respondAsAgent: async ({ agentId, taskGoal, messages = [], outputConstraints }) => {
         const token = get().token;
         if (!token) throw new Error("Not authenticated.");
+        const { aiMode, defaultApi, apiRoutingMode, localApiProvider } = get();
+        const effectiveRoutingMode = aiMode === "single" ? defaultApi : apiRoutingMode;
         return api.respondAgent(
           agentId,
           {
             taskGoal,
             messages,
             outputConstraints,
-            apiRoutingMode: get().apiRoutingMode,
+            apiRoutingMode: effectiveRoutingMode,
+            localApiProvider: get().localApiProvider,
             ollamaModel: get().ollamaModel,
             discussionMode: get().gameState.mode,
             toolCallingEnabled: get().toolCallingEnabled,
@@ -299,8 +303,9 @@ const useAppStore = create(
           memoryMode: "minimal",
           toolCallingEnabled: true,
           aiMode: "single",
-          defaultApi: "openrouter",
-          fallbackApi: "ollama",
+          defaultApi: "localapi",
+          fallbackApi: "openrouter",
+          localApiProvider: "chatgpt",
           gameState: initialGameState(),
           messages: [],
           discussionHistory: [],
@@ -431,7 +436,11 @@ const useAppStore = create(
               ...entry,
               messages: entry.messages.sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0)),
               report: reportMap.get(`${entry.sessionId}::${entry.topic}`)?.verdict || null,
-              mode: reportMap.get(`${entry.sessionId}::${entry.topic}`)?.mode || "mentor",
+              // Reports are only saved after a verdict. Older/in-progress Idea
+              // Validation sessions therefore have no report to identify their
+              // mode, but they should still reopen in the Boardroom dashboard
+              // (with its whiteboard), not the legacy Mentor sidebar.
+              mode: reportMap.get(`${entry.sessionId}::${entry.topic}`)?.mode || "boardroom",
             }))
             .sort((a, b) => b.lastTimestamp - a.lastTimestamp);
 
@@ -484,7 +493,7 @@ const useAppStore = create(
         set((state) => ({
           gameState: {
             ...state.gameState,
-            mode: entry.report?.mode || entry.mode || "mentor",
+            mode: entry.report?.mode || entry.mode || "boardroom",
             setupPhase: "ready",
             phase: "draft",
             topic: entry.topic,
@@ -498,7 +507,7 @@ const useAppStore = create(
         }));
         
         // Load whiteboard if this is a boardroom discussion
-        const mode = entry.report?.mode || entry.mode || "mentor";
+        const mode = entry.report?.mode || entry.mode || "boardroom";
         if (mode === "boardroom") {
           get().loadWhiteboard();
         }
@@ -557,6 +566,9 @@ const useAppStore = create(
 
         set({ isLoadingReply: true });
         try {
+          const { aiMode, defaultApi, apiRoutingMode, localApiProvider } = get();
+          const effectiveRoutingMode = aiMode === "single" ? defaultApi : apiRoutingMode;
+
           const result = await api.runOrchestrator(
             {
               taskGoal: gameState.topic || "Advance the discussion with clear, role-grounded reasoning.",
@@ -565,7 +577,8 @@ const useAppStore = create(
               maxIterations: 1,
               allowMetaMemory: true,
               metaMemory: { summary: "" },
-              apiRoutingMode: get().apiRoutingMode,
+              apiRoutingMode: effectiveRoutingMode,
+              localApiProvider: get().localApiProvider,
               ollamaModel: get().ollamaModel,
               orchestratorMode: get().orchestratorMode,
               memoryMode: get().memoryMode,
@@ -602,6 +615,7 @@ const useAppStore = create(
             newAgentMessages.map((m) =>
               api.createMessage(
                 {
+                  id: m.id,
                   sessionId: gameState.sessionId,
                   topic: gameState.topic,
                   sessionParticipantIds,
@@ -803,6 +817,7 @@ const useAppStore = create(
       setAiMode: (aiMode) => set({ aiMode }),
       setDefaultApi: (defaultApi) => set({ defaultApi }),
       setFallbackApi: (fallbackApi) => set({ fallbackApi }),
+      setLocalApiProvider: (localApiProvider) => set({ localApiProvider }),
 
       resetSession: () =>
         set({
@@ -1000,6 +1015,7 @@ const useAppStore = create(
         aiMode: state.aiMode,
         defaultApi: state.defaultApi,
         fallbackApi: state.fallbackApi,
+        localApiProvider: state.localApiProvider,
         gameState: state.gameState,
         discussionHistory: state.discussionHistory,
         messages: state.messages,
